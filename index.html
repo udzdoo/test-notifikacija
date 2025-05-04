@@ -113,8 +113,12 @@
         // Konfiguracija za Airtable API
         const AIRTABLE_API_KEY = 'patDuIFmBKqym8YSo.08ebbc0f176b60726f3f6b792a3e2d828b6ea5fff3260148fd6dbd7e21756268';
         const AIRTABLE_BASE_ID = 'appqbV5XHvwSIDBfm';
-        const AIRTABLE_TABLE_NAME = 'Tabela%20povratne%20informacije'; // URL encoded naziv tabele
+        const AIRTABLE_TABLE_NAME = 'Tabela%20povratne%20informacije';
         const CHECK_INTERVAL = 10000; // 10 sekundi
+        
+        // Globalne promenljive za praćenje stanja
+        let previousDoneIds = new Set(); // Čuva ID-ove zapisa koji su već bili "Uradjeno"
+        let firstLoad = true; // Da li je prvo učitavanje
         
         // Proveri da li je status "Uradjeno"
         function isStatusDone(record) {
@@ -155,14 +159,20 @@
                 const tableBody = document.getElementById('tableBody');
                 tableBody.innerHTML = '';
                 
-                let hasDoneStatus = false;
+                let currentDoneIds = new Set();
+                let newDoneItems = [];
                 
                 records.forEach(record => {
                     const fields = record.fields;
                     const isDone = isStatusDone(record);
                     
                     if (isDone) {
-                        hasDoneStatus = true;
+                        currentDoneIds.add(record.id);
+                        
+                        // Proveri da li je ovo novo "Uradjeno" (nije bilo u prethodnom skupu)
+                        if (!previousDoneIds.has(record.id)) {
+                            newDoneItems.push(record);
+                        }
                     }
                     
                     const row = document.createElement('tr');
@@ -185,18 +195,31 @@
                     tableBody.appendChild(row);
                 });
                 
-                if (hasDoneStatus) {
-                    showNotification();
+                // Obrada notifikacija
+                if (firstLoad) {
+                    // Prvo učitavanje - prikaži notifikaciju ako ima "Uradjeno"
+                    if (currentDoneIds.size > 0) {
+                        showNotification(`Pronađeno ${currentDoneIds.size} zapisa sa statusom "Uradjeno"`);
+                    }
+                    firstLoad = false;
+                } else {
+                    // Naknadne provere - prikaži notifikaciju za nove "Uradjeno"
+                    if (newDoneItems.length > 0) {
+                        showNotification(`Novo: ${newDoneItems.length} zapisa promenjeno u "Uradjeno"`);
+                    }
                 }
+                
+                // Ažuriraj prethodne ID-ove za sledeću proveru
+                previousDoneIds = currentDoneIds;
             } catch (error) {
                 console.error('Greška pri ažuriranju tabele:', error);
                 showErrorNotification();
             }
         }
         
-        function showNotification() {
+        function showNotification(message) {
             const notification = document.getElementById('notification');
-            notification.textContent = '⚡ Status je promenjen na "Uradjeno"!';
+            notification.textContent = '⚡ ' + message;
             notification.style.display = 'block';
             notification.style.backgroundColor = '#28a745';
             
