@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Statusa - Tabela povratne informacije</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 1000;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #statusTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #statusTable th, #statusTable td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+            word-wrap: break-word;
+            max-width: 200px;
+        }
+        #statusTable th {
+            background-color: #343a40;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        .status-cell {
+            font-weight: bold;
+            text-align: center;
+        }
+        .status-Uradjeno {
+            background-color: #d4edda;
+        }
+        .last-check {
+            font-style: italic;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+        .refresh-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        .refresh-btn:hover {
+            background-color: #0069d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitor Statusa - Tabela povratne informacije</h1>
+    <p class="last-check">Poslednja provera: <span id="lastCheck">nije izvršena</span></p>
+    <button class="refresh-btn" onclick="manualRefresh()">Ručno osveži</button>
+    
+    <div id="notification" class="notification">
+        ⚡ Status je promenjen na "Uradjeno"!
+    </div>
+    
+    <table id="statusTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>A. Idialog</th>
+                <th>B. Lateral Idialog</th>
+                <th>C. General Domain...</th>
+                <th>D. Vista Identity</th>
+                <th>E. Claims associated length</th>
+                <th>F. Claims / names representing votes</th>
+                <th>G. Has verbatimize ordinate</th>
+                <th>H. Should be written</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <!-- Podaci će biti dodati dinamički -->
+        </tbody>
+    </table>
+
+    <script>
+        // Konfiguracija za Airtable API
+        const AIRTABLE_API_KEY = 'patDuIFmBKqym8YSo.08ebbc0f176b60726f3f6b792a3e2d828b6ea5fff3260148fd6dbd7e21756268';
+        const AIRTABLE_BASE_ID = 'appqbV5XHvwSIDBfm';
+        const AIRTABLE_TABLE_NAME = 'Tabela%20povratne%20informacije'; // URL encoded naziv tabele
+        const CHECK_INTERVAL = 10000; // 10 sekundi
+        
+        // Proveri da li je status "Uradjeno"
+        function isStatusDone(record) {
+            return record.fields['Status'] === 'Uradjeno';
+        }
+        
+        // Dobavi podatke sa Airtable
+        async function fetchAirtableData() {
+            try {
+                const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${AIRTABLE_API_KEY}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.records;
+            } catch (error) {
+                console.error('Greška pri dobavljanju podataka:', error);
+                showErrorNotification();
+                return [];
+            }
+        }
+        
+        // Prikaz podataka u tabeli
+        async function updateTable() {
+            try {
+                const records = await fetchAirtableData();
+                const now = new Date();
+                document.getElementById('lastCheck').textContent = now.toLocaleTimeString();
+                
+                const tableBody = document.getElementById('tableBody');
+                tableBody.innerHTML = '';
+                
+                let hasDoneStatus = false;
+                
+                records.forEach(record => {
+                    const fields = record.fields;
+                    const isDone = isStatusDone(record);
+                    
+                    if (isDone) {
+                        hasDoneStatus = true;
+                    }
+                    
+                    const row = document.createElement('tr');
+                    if (isDone) {
+                        row.classList.add('status-Uradjeno');
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${record.id.substring(0, 8)}...</td>
+                        <td>${fields['A. Idialog'] || '-'}</td>
+                        <td>${fields['B. Lateral Idialog'] || '-'}</td>
+                        <td>${fields['C. General Domain...'] || '-'}</td>
+                        <td>${fields['D. Vista Identity'] || '-'}</td>
+                        <td>${fields['E. Claims associated length'] || '-'}</td>
+                        <td>${fields['F. Claims / names representing votes'] || '-'}</td>
+                        <td>${fields['G. Has verbatimize ordinate'] || '-'}</td>
+                        <td>${fields['H. Should be written'] || '-'}</td>
+                        <td class="status-cell">${fields['Status'] || '-'}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+                
+                if (hasDoneStatus) {
+                    showNotification();
+                }
+            } catch (error) {
+                console.error('Greška pri ažuriranju tabele:', error);
+                showErrorNotification();
+            }
+        }
+        
+        function showNotification() {
+            const notification = document.getElementById('notification');
+            notification.textContent = '⚡ Status je promenjen na "Uradjeno"!';
+            notification.style.display = 'block';
+            notification.style.backgroundColor = '#28a745';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showErrorNotification() {
+            const notification = document.getElementById('notification');
+            notification.textContent = '❌ Greška pri učitavanju podataka!';
+            notification.style.display = 'block';
+            notification.style.backgroundColor = '#dc3545';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+        
+        function manualRefresh() {
+            updateTable();
+        }
+        
+        // Pokreni proveru
+        updateTable();
+        setInterval(updateTable, CHECK_INTERVAL);
+    </script>
+</body>
+</html>
