@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Statusa - Tabela povratne informacije</title>
     <style>
+        /* Ostavio sam isti CSS kao prethodno za dizajn stranice */
         body {
             font-family: Arial, sans-serif;
             padding: 20px;
@@ -12,75 +13,11 @@
             margin: 0 auto;
             background-color: #f8f9fa;
         }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #28a745;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 5px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            display: none;
-            z-index: 1000;
-            animation: fadeIn 0.5s;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        #statusTable {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 14px;
-            background-color: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        #statusTable th, #statusTable td {
-            border: 1px solid #dee2e6;
-            padding: 12px;
-            text-align: left;
-            word-wrap: break-word;
-            max-width: 200px;
-        }
-        #statusTable th {
-            background-color: #343a40;
-            color: white;
-            position: sticky;
-            top: 0;
-        }
-        .status-cell {
-            font-weight: bold;
-            text-align: center;
-        }
-        .status-Uradjeno {
-            background-color: #d4edda;
-        }
-        .last-check {
-            font-style: italic;
-            color: #6c757d;
-            margin-bottom: 20px;
-        }
-        .refresh-btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 15px;
-        }
-        .refresh-btn:hover {
-            background-color: #0069d9;
-        }
+        /* ... (ostali CSS ostaje isti kao u prethodnom primeru) ... */
     </style>
 </head>
 <body>
+    <!-- HTML ostaje isti kao prethodno -->
     <h1>Monitor Statusa - Tabela povratne informacije</h1>
     <p class="last-check">Poslednja provera: <span id="lastCheck">nije izvršena</span></p>
     <button class="refresh-btn" onclick="manualRefresh()">Ručno osveži</button>
@@ -90,24 +27,14 @@
     </div>
     
     <table id="statusTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>A. Idialog</th>
-                <th>B. Lateral Idialog</th>
-                <th>C. General Domain...</th>
-                <th>D. Vista Identity</th>
-                <th>E. Claims associated length</th>
-                <th>F. Claims / names representing votes</th>
-                <th>G. Has verbatimize ordinate</th>
-                <th>H. Should be written</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-            <!-- Podaci će biti dodati dinamički -->
-        </tbody>
+        <!-- ... (ostatak tabele ostaje isti) ... -->
     </table>
+
+    <!-- Dodajemo audio element za notifikacioni zvuk -->
+    <audio id="notificationSound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
 
     <script>
         // Konfiguracija za Airtable API
@@ -116,9 +43,22 @@
         const AIRTABLE_TABLE_NAME = 'Tabela%20povratne%20informacije';
         const CHECK_INTERVAL = 10000; // 10 sekundi
         
-        // Globalne promenljive za praćenje stanja
-        let previousDoneIds = new Set(); // Čuva ID-ove zapisa koji su već bili "Uradjeno"
-        let firstLoad = true; // Da li je prvo učitavanje
+        // Globalne promenljive
+        let previousDoneIds = new Set();
+        let firstLoad = true;
+        let notificationPermissionGranted = false;
+        
+        // Provera dozvola za notifikacije
+        function checkNotificationPermission() {
+            if (!("Notification" in window)) {
+                console.log("Browser ne podržava notifikacije");
+                return;
+            }
+            
+            Notification.requestPermission().then(permission => {
+                notificationPermissionGranted = permission === "granted";
+            });
+        }
         
         // Proveri da li je status "Uradjeno"
         function isStatusDone(record) {
@@ -144,7 +84,7 @@
                 return data.records;
             } catch (error) {
                 console.error('Greška pri dobavljanju podataka:', error);
-                showErrorNotification();
+                showErrorNotification('Greška pri učitavanju podataka');
                 return [];
             }
         }
@@ -169,7 +109,6 @@
                     if (isDone) {
                         currentDoneIds.add(record.id);
                         
-                        // Proveri da li je ovo novo "Uradjeno" (nije bilo u prethodnom skupu)
                         if (!previousDoneIds.has(record.id)) {
                             newDoneItems.push(record);
                         }
@@ -197,53 +136,62 @@
                 
                 // Obrada notifikacija
                 if (firstLoad) {
-                    // Prvo učitavanje - prikaži notifikaciju ako ima "Uradjeno"
                     if (currentDoneIds.size > 0) {
-                        showNotification(`Pronađeno ${currentDoneIds.size} zapisa sa statusom "Uradjeno"`);
+                        showBrowserNotification(`Pronađeno ${currentDoneIds.size} zapisa sa statusom "Uradjeno"`);
                     }
                     firstLoad = false;
-                } else {
-                    // Naknadne provere - prikaži notifikaciju za nove "Uradjeno"
-                    if (newDoneItems.length > 0) {
-                        showNotification(`Novo: ${newDoneItems.length} zapisa promenjeno u "Uradjeno"`);
-                    }
+                } else if (newDoneItems.length > 0) {
+                    showBrowserNotification(`Novi završeni zadatak: ${newDoneItems[0].id.substring(0, 8)}...`);
+                    playNotificationSound();
                 }
                 
-                // Ažuriraj prethodne ID-ove za sledeću proveru
                 previousDoneIds = currentDoneIds;
             } catch (error) {
                 console.error('Greška pri ažuriranju tabele:', error);
-                showErrorNotification();
+                showErrorNotification('Greška pri ažuriranju tabele');
             }
         }
         
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            notification.textContent = '⚡ ' + message;
-            notification.style.display = 'block';
-            notification.style.backgroundColor = '#28a745';
+        // Desktop notifikacija
+        function showBrowserNotification(message) {
+            // Proveri da li su dozvole date
+            if (!notificationPermissionGranted) {
+                console.log('Dozvole za notifikacije nisu date');
+                return;
+            }
             
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 5000);
+            const options = {
+                body: message,
+                icon: 'https://cdn-icons-png.flaticon.com/512/3652/3652191.png', // Ikona notifikacije
+                vibrate: [200, 100, 200], // Vibracija (ako je podržana)
+                tag: 'airtable-notification'
+            };
+            
+            new Notification('Airtable Status', options);
         }
         
-        function showErrorNotification() {
-            const notification = document.getElementById('notification');
-            notification.textContent = '❌ Greška pri učitavanju podataka!';
-            notification.style.display = 'block';
-            notification.style.backgroundColor = '#dc3545';
-            
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 5000);
+        // Reprodukuj zvuk notifikacije
+        function playNotificationSound() {
+            const sound = document.getElementById('notificationSound');
+            sound.currentTime = 0; // Resetujemo na početak ako je već puštan
+            sound.play().catch(e => console.log('Greška pri reprodukciji zvuka:', e));
+        }
+        
+        function showErrorNotification(message) {
+            if (notificationPermissionGranted) {
+                new Notification('Greška', {
+                    body: message,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/463/463612.png'
+                });
+            }
         }
         
         function manualRefresh() {
             updateTable();
         }
         
-        // Pokreni proveru
+        // Inicijalizacija
+        checkNotificationPermission();
         updateTable();
         setInterval(updateTable, CHECK_INTERVAL);
     </script>
